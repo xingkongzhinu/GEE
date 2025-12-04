@@ -46,7 +46,7 @@ var visParams = {
 };
 
 // 添加盐度图层到地图
-Map.addLayer(salinity_2024_jan.clip(pearl_river_estuary), visParams, '2025年1月盐度', true);
+Map.addLayer(salinity_2024_jan.clip(pearl_river_estuary), visParams, '2024年1月盐度', true);
 
 // 构建自定义图例（UI面板）
 var legend = ui.Panel({
