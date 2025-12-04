@@ -1,6 +1,5 @@
 /*
-  珠江口2025年1月盐度分析 - 带图例+地图导出
-  功能：1. 盐度计算 2. 自定义色彩图例 3. 导出PNG/JPG地图图像
+  功能：1. 盐度计算 2. 自定义色彩图例 
 */
 
 // ---------------------- 1. 定义珠江口研究区域 ----------------------
@@ -28,9 +27,9 @@ Map.addLayer(pearl_river_estuary, {color: 'red'}, '珠江口研究区', true);
 Map.addLayer(core_point, {color: 'blue'}, '核心监测点', true);
 Map.addLayer(comparison_points, {color: 'green'}, '对比监测点', true);
 
-// ---------------------- 2. 2025年1月盐度数据计算 ----------------------
-var salinity_2025_jan = ee.ImageCollection("HYCOM/sea_temp_salinity")
-  .filterDate('2025-01-01', '2025-02-01')  // 筛选2025年1月
+// ---------------------- 2. 2024年1月盐度数据计算 ----------------------
+var salinity_2024_jan = ee.ImageCollection("HYCOM/sea_temp_salinity")
+  .filterDate('2024-01-01', '2024-02-01')  // 筛选2024年1月
   .filterBounds(pearl_river_estuary)       // 筛选研究区
   .select('salinity_0')                    // 选择表层盐度波段
   .map(function(img) {
@@ -47,7 +46,7 @@ var visParams = {
 };
 
 // 添加盐度图层到地图
-Map.addLayer(salinity_2025_jan.clip(pearl_river_estuary), visParams, '2025年1月盐度', true);
+Map.addLayer(salinity_2024_jan.clip(pearl_river_estuary), visParams, '2025年1月盐度', true);
 
 // 构建自定义图例（UI面板）
 var legend = ui.Panel({
