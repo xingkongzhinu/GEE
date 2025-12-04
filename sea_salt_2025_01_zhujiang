@@ -1,0 +1,103 @@
+/*
+  珠江口2025年1月盐度分析 - 带图例+地图导出
+  功能：1. 盐度计算 2. 自定义色彩图例 3. 导出PNG/JPG地图图像
+*/
+
+// ---------------------- 1. 定义珠江口研究区域 ----------------------
+var pearl_river_estuary = ee.Geometry.Polygon([
+  [113.5, 21.5],    // 西南角
+  [114.0, 21.5],    // 东南角
+  [114.0, 22.3],    // 东北角
+  [113.5, 22.3],    // 西北角
+  [113.5, 21.5]     // 闭合
+], null, false);
+
+// 定义监测点
+var core_point = ee.Geometry.Point([113.8, 22.0]);
+var near_shore_point = ee.Geometry.Point([113.5, 22.1]);  // 近岸
+var off_shore_point = ee.Geometry.Point([114.2, 21.5]);   // 外海
+var comparison_points = ee.FeatureCollection([
+  ee.Feature(near_shore_point, {name: '近岸点'}),
+  ee.Feature(off_shore_point, {name: '外海点'})
+]);
+
+// 地图居中显示珠江口（调整缩放级别至10，更清晰）
+Map.centerObject(pearl_river_estuary, 10);
+// 添加研究区和监测点
+Map.addLayer(pearl_river_estuary, {color: 'red'}, '珠江口研究区', true);
+Map.addLayer(core_point, {color: 'blue'}, '核心监测点', true);
+Map.addLayer(comparison_points, {color: 'green'}, '对比监测点', true);
+
+// ---------------------- 2. 2025年1月盐度数据计算 ----------------------
+var salinity_2025_jan = ee.ImageCollection("HYCOM/sea_temp_salinity")
+  .filterDate('2025-01-01', '2025-02-01')  // 筛选2025年1月
+  .filterBounds(pearl_river_estuary)       // 筛选研究区
+  .select('salinity_0')                    // 选择表层盐度波段
+  .map(function(img) {
+    return img.multiply(0.001).add(20).rename('SSS');  // 数据校正
+  })
+  .mean();  // 月均值
+
+// ---------------------- 3. 自定义色彩图例（关键） ----------------------
+// 定义盐度可视化参数（PSU：30-35，对应渐变配色）
+var visParams = {
+  min: 30, 
+  max: 35, 
+  palette: ['blue', 'cyan', 'green', 'yellow', 'orange', 'red']
+};
+
+// 添加盐度图层到地图
+Map.addLayer(salinity_2025_jan.clip(pearl_river_estuary), visParams, '2025年1月盐度', true);
+
+// 构建自定义图例（UI面板）
+var legend = ui.Panel({
+  style: {
+    position: 'bottom-right',  // 图例位置：右下角
+    padding: '8px 15px'
+  }
+});
+
+// 图例标题
+var legendTitle = ui.Label({
+  value: '海面盐度 (PSU)',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '14px',
+    margin: '0 0 6px 0',
+    padding: '0'
+  }
+});
+legend.add(legendTitle);
+
+// 构建图例颜色条和标签
+var makeRow = function(color, label) {
+  // 颜色块
+  var colorBox = ui.Label({
+    style: {
+      backgroundColor: color,
+      // 颜色块大小
+      padding: '8px',
+      margin: '0 0 4px 0'
+    }
+  });
+  // 标签
+  var description = ui.Label({
+    value: label,
+    style: {margin: '0 0 4px 6px'}
+  });
+  return ui.Panel({
+    widgets: [colorBox, description],
+    layout: ui.Panel.Layout.Flow('horizontal')
+  });
+};
+
+// 生成图例刻度（30-35，间隔1）
+var palette = visParams.palette;
+var labels = ['30', '31', '32', '33', '34', '35'];
+for (var i = 0; i < palette.length; i++) {
+  legend.add(makeRow(palette[i], labels[i]));
+}
+
+// 将图例添加到地图
+Map.add(legend);
+
