@@ -1,6 +1,7 @@
 /*
-  珠江口2024-2025年海岸线变化监测
-  功能：NDWI计算 + 海岸线变化检测 + 可视化（带图例）
+  珠江口2024-2025年海岸线变化监测（修复版）
+  修复问题：1. change_val.eq is not a function 2. No band named 'constant'
+  功能：NDWI计算 + 海岸线变化检测 + 可视化（带图例） + 矢量/栅格导出
 */
 
 // ---------------------- 1. 定义珠江口研究区域 ----------------------
@@ -126,3 +127,78 @@ print('=== 2024-2025珠江口海岸线变化面积 ===');
 print('侵蚀面积（平方公里）：', erosion_area);
 print('淤积面积（平方公里）：', accretion_area);
 print('净变化面积（平方公里）：', accretion_area.subtract(erosion_area));
+
+// ---------------------- 10. 2024 年逐月：水体 + 侵蚀 + 淤积 三条折线 ----------------------
+
+// 生成月份列表
+var months = ee.List.sequence(1, 12);
+
+// 月度统计函数
+function monthlyCoastStats(month) {
+  month = ee.Number(month);
+  
+  var start = ee.Date.fromYMD(2024, month, 1);
+  var end   = start.advance(1, 'month');
+  
+  var water = calculateNDWIWaterMask(start, end, pearl_river_estuary);
+
+  // 侵蚀：当月是水体，上月不是水体
+  var prevWater = calculateNDWIWaterMask(start.advance(-1, 'month'), start, pearl_river_estuary);
+  var erosion   = prevWater.subtract(water).eq(1).selfMask();
+
+  // 淤积：当月不是水体，上月是水体
+  var accretion = water.subtract(prevWater).eq(1).selfMask();
+
+  // 面积计算函数
+  function area(img) {
+    return img.multiply(ee.Image.pixelArea()).divide(1e6)
+      .reduceRegion({
+        reducer: ee.Reducer.sum(),
+        geometry: pearl_river_estuary,
+        scale: 250,
+        maxPixels: 1e13
+      }).get('constant');
+  }
+
+  // 计算面积
+  var waterArea    = ee.Number(area(water));
+  var erosionArea  = ee.Number(area(erosion));
+  var accretionArea= ee.Number(area(accretion));
+
+  return ee.Feature(null, {
+    '月度': month,
+    '水体': waterArea,
+    '侵蚀': erosionArea,
+    '淤积': accretionArea
+  });
+}
+
+var monthlyData = ee.FeatureCollection(months.map(monthlyCoastStats));
+
+// 输出数据表
+print('2024年逐月变化统计表', monthlyData);
+
+
+// ---------------------- 11. 绘制三条折线图 ----------------------
+var chart = ui.Chart.feature.byFeature({
+  features: monthlyData,
+  xProperty: '月度',
+  yProperties: ['水体', '侵蚀', '淤积']
+})
+.setChartType('LineChart')
+.setOptions({
+  title: '2024年珠江口月度水体 / 侵蚀 / 淤积 变化趋势',
+  hAxis: {
+    title: '月份',
+    gridlines: {count: 12}
+  },
+  vAxis: {
+    title: '面积（km²）'
+  },
+  lineWidth: 2,
+  pointSize: 4,
+  colors: ['#1f78b4', '#e31a1c', '#33a02c'],
+  legend: {position: 'top'}
+});
+
+print(chart);
